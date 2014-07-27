@@ -1,0 +1,21 @@
+{
+  "name": "sqlrest",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "knex": "~0.6.22",
+    "pg": "~3.4.0",
+    "express": "~4.6.1",
+    "body-parser": "~1.5.0",
+    "express-validator": "~2.3.0",
+    "cookie-session": "~1.0.2",
+    "bluebird": "~2.2.2",
+    "express-namespace": "~0.1.1"
+  }
+}
