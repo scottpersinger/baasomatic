@@ -23,29 +23,30 @@ database.
 
 The rest endpoints look like:
 
-   /tables - get metadata on all tables
-   /tables/<table>
+    /tables - get metadata on all tables
+    /tables/<table>
       GET - retrieve rows from the table
       POST - insert a row in the table
       PATCH - update multiple rows in the table
       DELETE - delete multiple rows in the table
-   /tables/<table>/<row pk>
+    /tables/<table>/<row pk>
       GET - retrieve a single row by primary key
       PATCH - update a single row by primary key
       DELET - delete a single row by primary key
-   /tables/<table>/$meta
+    /tables/<table>/$meta
       GET - returns the table structure
       POST - pass a table definition to create a new table, a dict mapping column names to types, like:
             {"id":"key", "name:":"string,20", "email":"string,512", "date":"date"}
-  /tables/<table>/$count
+    /tables/<table>/$count
       GET - returns the count of (visible) rows in the table
 
-  Query parameters:
-      schema - Use an alternate schema from 'public'
-      filter - Specify a filter clause for GET, PATCH, DELETE
-      offset, limit - Specify offset and limit for GET
+##  Query parameters:
 
-  Headers
+    schema - Use an alternate schema from 'public'
+    filter - Specify a filter clause for GET, PATCH, DELETE
+    offset, limit - Specify offset and limit for GET
+
+## Headers
       Authorization - specify a session id
 
 ## Payloads and return values
