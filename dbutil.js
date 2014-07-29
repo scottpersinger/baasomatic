@@ -45,11 +45,19 @@ module.exports = function DB(config, knex) {
 						table.boolean('read').defaultTo('false');
 						table.boolean('write').defaultTo('false');
 						table.boolean('list').defaultTo('false');
+						table.string('user_column', 128);
+						table.string('group_column', 128)
 					}).catch(function(err) {
 						throw err;
 					});
 				}
 			});
+		},
+
+		ensure_column: function(table_name, column, callback) {
+			return knex.schema.table(table_name, function(table) {
+				table.integer(column).index();
+			}).then(callback);
 		}
 
 

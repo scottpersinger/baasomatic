@@ -33,6 +33,12 @@ The rest endpoints look like:
       GET - retrieve a single row by primary key
       PATCH - update a single row by primary key
       DELET - delete a single row by primary key
+   /tables/<table>/$meta
+      GET - returns the table structure
+      POST - pass a table definition to create a new table, a dict mapping column names to types, like:
+            {"id":"key", "name:":"string,20", "email":"string,512", "date":"date"}
+  /tables/<table>/$count
+      GET - returns the count of (visible) rows in the table
 
   Query parameters:
       schema - Use an alternate schema from 'public'
@@ -111,9 +117,6 @@ directly with the database.
         DELETE
             Delete the perms for this level on the indicated table
 
-
-     /tables/<table>/$metadata
-       GET - returns the table structure
 
      /roles 
          GET - list all roles

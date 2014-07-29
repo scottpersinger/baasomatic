@@ -16,6 +16,13 @@
     "express-validator": "~2.3.0",
     "cookie-session": "~1.0.2",
     "bluebird": "~2.2.2",
-    "express-namespace": "~0.1.1"
+    "express-namespace": "~0.1.1",
+    "supertest": "~0.13.0",
+    "should": "~4.0.4"
+  },
+  "devDependencies": {
+    "superagent": "~0.18.2",
+    "mocha": "~1.21.3",
+    "expect.js": "~0.3.1"
   }
 }

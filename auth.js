@@ -8,7 +8,9 @@ module.exports = function Auth(config, knex, DB) {
 	}
 
 	function _has_role(user, roles, callback) {
-		console.log("HAS ROLES, ", roles);
+		if (roles.indexOf(config.SUPERUSER_ROLE) != -1 && user.is_superuser) {
+			callback(true);
+		}
 		knex.select('user_id').
 			from(config.ROLE_TABLE).
 			where({user_id : user.id}).
@@ -30,9 +32,7 @@ module.exports = function Auth(config, knex, DB) {
 			}
 			packet[config.USER_EMAIL_COL] = req.body.email;
 			packet[config.USER_CRYPTED_PASSWORD_COL] = req.body.password;
-			console.log("Packet ", packet);
 			knex(config.USER_TABLE).returning('id').insert(packet).then(function(rows) {
-				console.log(rows);
 				return res.json({user_id: rows[0]});
 			}).catch(function(err) {
 				res.json(500, {error: err});
@@ -43,10 +43,20 @@ module.exports = function Auth(config, knex, DB) {
 			if (req.session && req.session.user_id) {
 				req.user = new User(req.session.user_id);
 				req.user.is_superuser = _has_superuser_header(req.headers);
+			} else if (_has_superuser_header(req.headers)) {
+				req.user = new User(0);
+				req.user.is_superuser = true;
 			} else {
 				req.user = null;
 			}
-			next();
+			if (req.user) {
+				_has_role(req.user, ['admin'], function(result) {
+					req.user.is_admin = result;
+					next();
+				})
+			} else {
+				next();
+			}
 		},
 
 		login : function (req, res) {
@@ -72,7 +82,7 @@ module.exports = function Auth(config, knex, DB) {
 
 		logout: function(req, res) {
 			req.session = null;
-     		res.send(config.OK_RESULT);
+     		res.json(config.OK_RESULT);
 		},
 
 		create_role: function(req, res) {
@@ -84,8 +94,20 @@ module.exports = function Auth(config, knex, DB) {
 			knex(config.ROLE_TABLE).returning('user_id').insert(packet).then(function(rows) {
 				res.json(config.OK_RESULT);
 			}).catch(function(err) {
-				res.json(config.OK_RESULT);
+				res.json(500, {error: err});
 			});
+		},
+
+		delete_role: function(req, res) {
+			var role = req.params.role;
+			var user_id = req.params.user_id;
+			knex(config.ROLE_TABLE).where({user_id:user_id}).del().then(function(rows) {
+				if (rows[0] > 0) {
+					res.json({result: "Role deleted"});
+				} else {
+					res.json({result: "Role not found"});
+				}
+			})
 		},
 
 		has_role: function(roles) {
@@ -94,11 +116,14 @@ module.exports = function Auth(config, knex, DB) {
 					_has_superuser_header(req.headers)) {
 					return next();
 				}
+				if (!req.user) {
+					return res.json(401, {error: "Must login"});
+				}
 				_has_role(req.user, roles, function(flag) {
 					if (flag) {
 						next();
 					} else {
-						return res.json(401, {error: "Not authorized"});
+						return res.json(403, {error: "Forbidden"});
 					}
 				});
 			}
@@ -112,34 +137,30 @@ module.exports = function Auth(config, knex, DB) {
 			if (req.session && req.session.user_id) {
 				next();
 			} else {
-				res.json(401, {error: "Not authorized"});
-			}
-		},
-
-		is_superuser: function(req, res, next) {
-			if (req.is_superuser) {
-				return next();
-			} else if (this._has_superuser_header(req.headers)) {
-				req.is_superuser = true;
-				return next();
-			} else {
-				return res.json(401, {error: "Unauthorized"});
+				return res.json(401, {error: "Not authorized"});
 			}
 		},
 
 		me: function(req, res, next) {
 			if (req.session.user_id) {
-				knex.select('*').
-					from(config.USER_TABLE).
-					where({id: req.session.user_id}).
-					then(function(rows) {
-						if (rows.length > 0) {
-							rows[0][config.USER_CRYPTED_PASSWORD_COL] = '****';
-							return res.json(rows[0]);
-						} else {
-							return res.send(404, "Not found");
-						}
-					});
+				knex.select('role').
+					from(config.ROLE_TABLE).
+					where({user_id: req.user.id}).
+					then(function(roles) {
+						roles = roles.map(function(row) {return row.role});
+						knex.select('*').
+							from(config.USER_TABLE).
+							where({id: req.session.user_id}).
+							then(function(rows) {
+								if (rows.length > 0) {
+									rows[0][config.USER_CRYPTED_PASSWORD_COL] = '****';
+									rows[0]['roles'] = roles;
+									return res.json(rows[0]);
+								} else {
+									return res.send(404, "Not found");
+								}
+							});
+					})
 			} else {
 				res.send(401, "Not logged in");
 			}

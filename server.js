@@ -3,6 +3,7 @@ var express = require('express')
   , expressValidator = require('express-validator')
   , session = require('cookie-session')
   , namespace = require('express-namespace')
+  , URL = require('url')
 
 config = {
   DATABASE_URL: process.env.DATABASE_URL || 'postgresql://@localhost/connect_dev',
@@ -20,11 +21,12 @@ config = {
 
 var knex = require('knex')({
 	client: 'pg',
-  debug: true,
+  debug: false,
 	connection: config.DATABASE_URL
 });
 
-knex.client.connectionSettings = {user: '', database: 'connect_dev', port: '', host: ''};
+u = URL.parse(config.DATABASE_URL);
+knex.client.connectionSettings = {user: '', database: u.path.substring(1), port: u.port, host: u.host};
 
 var DBUtil = require('./dbutil')(config, knex);
 var auth = require('./auth')(config, knex, DBUtil);
@@ -36,7 +38,7 @@ DBUtil.ensure_access_table();
 
 var app = express();
 app.use(function(req, res, next) {
-  if (req.headers['content-type'] == undefined) {
+  if (req.headers['content-type'] == undefined && req.body) {
     req.headers['content-type'] = 'application/json';
   }
   next();
@@ -49,9 +51,9 @@ app.use(session(
     }));
 
 app.use(function(req, res, next){
-  console.log("HEADERS: ", req.headers);
-  console.log('%s %s', req.method, req.url);
-  console.log("BODY: ", req.body);
+  //console.log("HEADERS: ", req.headers);
+  //console.log('%s %s', req.method, req.url);
+  //console.log("BODY: ", req.body);
   next();
 });
 app.use(auth.load_user);
@@ -61,25 +63,36 @@ app.post('/register', auth.register);
 app.post('/login', auth.login);
 app.post('/logout', auth.logged_in, auth.logout);
 
-app.post('/roles/:role', auth.logged_in, auth.has_role(['superuser', 'admin']), auth.create_role);
+app.post('/roles/:role', auth.has_role(['superuser', 'admin']), auth.create_role);
+app.delete('/roles/:role/:user_id', auth.has_role(['superuser', 'admin']), auth.delete_role);
 
 app.get('/me', auth.logged_in, auth.me);
 
 
 // Database
 
-app.get('/tables', auth.logged_in, auth.has_role(['superuser', 'admin']), db.tables);
-app.post('/tables/:table/\\$acl', auth.logged_in, auth.has_role(['superuser']), db.create_acl);
-app.get('/tables/:table/\\$acl', auth.logged_in, auth.has_role(['superuser']), db.get_acl);
-app.delete('/tables/:table/\\$acl/:level', auth.logged_in, auth.has_role(['superuser']), db.delete_acl);
+app.get(   '/tables', auth.has_role(['superuser', 'admin']), db.tables);
+app.post(  '/tables/:table/\\$acl', auth.has_role(['superuser','admin']), db.create_acl);
+app.get(   '/tables/:table/\\$acl', auth.has_role(['superuser','admin']), db.get_acl);
+app.delete('/tables/:table/\\$acl/:level', auth.has_role(['superuser','admin']), db.delete_acl);
 
-app.get('/tables/:table', db.select);
-app.get('/tables/:table/:pk', db.find);
+app.get(   '/tables/:table/\\$meta', db.schema);
+app.post(  '/tables/:table/\\$meta', db.create_table);
+app.get(   '/tables/:table',         db.select);
+app.get(   '/tables/:table/:pk',     db.find);
+app.post(  '/tables/:table',         db.create);
+app.post(  '/tables/:table/:pk',     db.update);
+app.delete('/tables/:table/:pk',     db.delete);
 
 
+app.use('*', function(req, res, next) {
+  var err = new Error("Page not found");
+  err.status = 404;
+  next(err);
+});
 app.use(function(err, req, res, next){
   console.error(err.stack);
-  res.json(500, {error: err.message});
+  res.json(500, {error: err.message, status:err.status});
 });
 
 function errorHandler(err, req, res, next) {
@@ -91,4 +104,6 @@ var port = Number(process.env.PORT || 3000);
 var server = app.listen(port, function() {
     console.log('Listening on port %d', server.address().port);
 });
+
+module.exports = {server: server, knex: knex, config:config};
 
